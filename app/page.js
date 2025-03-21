@@ -1,7 +1,7 @@
 // app/page.js
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function WeatherApp() {
   const [selectedCity, setSelectedCity] = useState("");
@@ -24,6 +24,13 @@ export default function WeatherApp() {
     { id: "okinawa", name: "沖縄", en: "Okinawa" },
   ];
 
+  // 選択された都市が変更されたら自動的に天気を取得
+  useEffect(() => {
+    if (selectedCity) {
+      fetchWeather();
+    }
+  }, [selectedCity]);
+
   // OpenWeatherMap APIを使用して天気情報を取得
   const fetchWeather = async () => {
     if (!selectedCity) return;
@@ -41,46 +48,30 @@ export default function WeatherApp() {
 
     const cityNameEn = selectedCityObj.en;
 
-    // 簡単なデモのためのモックデータ（APIキーが無効な場合のフォールバック）
     try {
-      // 実際のAPIコールは以下のようになります:
-      // OpenWeatherMap APIのキー
-      // const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY || 'YOUR_API_KEY';
-      // const res = await fetch(
-      //   `https://api.openweathermap.org/data/2.5/weather?q=${cityNameEn}&appid=${API_KEY}&units=metric&lang=ja`
-      // );
-      // if (!res.ok) {
-      //   throw new Error(`APIエラー: ${res.status}`);
-      // }
-      // const data = await res.json();
+      // OpenWeatherMap APIへのリクエスト
+      // 環境変数からAPIキーを取得（.env.localに設定）
+      const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
+      const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${cityNameEn},JP&appid=${API_KEY}&units=metric&lang=ja`);
 
-      // モックデータを使用
-      await new Promise((resolve) => setTimeout(resolve, 800)); // APIリクエストの遅延をシミュレート
+      if (!res.ok) {
+        throw new Error(`APIエラー: ${res.status}`);
+      }
 
-      // ランダムな天気データを生成
-      const weatherTypes = [
-        { id: 800, description: "快晴" },
-        { id: 801, description: "晴れ" },
-        { id: 802, description: "曇り" },
-        { id: 500, description: "小雨" },
-        { id: 501, description: "雨" },
-        { id: 600, description: "雪" },
-        { id: 741, description: "霧" },
-      ];
+      const data = await res.json();
 
-      const randomWeather = weatherTypes[Math.floor(Math.random() * weatherTypes.length)];
-
-      const mockData = {
-        city: selectedCityObj.name,
-        temperature: Math.floor(Math.random() * 35) - 5, // -5℃〜30℃
-        weatherType: randomWeather.description,
-        weatherId: randomWeather.id,
-        humidity: Math.floor(Math.random() * 100),
-        windSpeed: Math.floor(Math.random() * 20),
+      // APIレスポンスから必要なデータを抽出
+      const weatherData = {
+        city: selectedCityObj.name, // 日本語の都市名を使用
+        temperature: Math.round(data.main.temp),
+        weatherType: data.weather[0].description,
+        weatherId: data.weather[0].id,
+        humidity: data.main.humidity,
+        windSpeed: data.wind.speed,
         date: new Date().toLocaleDateString(),
       };
 
-      setWeather(mockData);
+      setWeather(weatherData);
     } catch (err) {
       console.error("Error fetching weather data:", err);
       setError("天気情報の取得に失敗しました。後でもう一度お試しください。");
@@ -125,23 +116,10 @@ export default function WeatherApp() {
           <label className="block text-gray-700 text-sm font-bold mb-2">都市を選択</label>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {cities.map((city) => (
-              <button
-                key={city.id}
-                onClick={() => {
-                  setSelectedCity(city.id);
-                  setWeather(null); // 都市を変更したら天気情報をリセット
-                }}
-                className={`p-2 text-sm rounded-lg transition-colors ${selectedCity === city.id ? "bg-blue-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}`}
-              >
+              <button key={city.id} onClick={() => setSelectedCity(city.id)} className={`p-2 text-sm rounded-lg transition-colors ${selectedCity === city.id ? "bg-blue-500 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}`}>
                 {city.name}
               </button>
             ))}
-          </div>
-
-          <div className="mt-4 flex justify-center">
-            <button onClick={fetchWeather} disabled={loading || !selectedCity} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed">
-              {loading ? "読込中..." : "天気を取得"}
-            </button>
           </div>
         </div>
 
@@ -181,10 +159,10 @@ export default function WeatherApp() {
           </div>
         )}
 
-        {/* 初期状態のガイド */}
-        {!weather && !loading && !error && selectedCity && (
-          <div className="text-center text-gray-500 mt-8">
-            <p>「天気を取得」ボタンをクリックして天気情報を表示します。</p>
+        {/* ローディング表示 */}
+        {loading && (
+          <div className="flex justify-center items-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
           </div>
         )}
 
